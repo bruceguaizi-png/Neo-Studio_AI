@@ -1,13 +1,15 @@
 "use client";
 
-import { Heart, MessageCircle, WandSparkles, X } from "lucide-react";
+import { Heart, Lock, MessageCircle, PlayCircle, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import { usePremium } from "@/components/premium-provider";
 import { captureClientEvent } from "@/lib/client/posthog";
 import { TRACKING_EVENTS } from "@/lib/constants";
+import { episodeNumberOf, isEpisodeLocked } from "@/lib/paywall";
 import { type FeedVideoItem, type Locale, type VideoComment } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +85,14 @@ export function FeedClient({
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
 
   const tagRail = useMemo(() => buildTagRail(videos, locale), [locale, videos]);
+  const { hasPremium } = usePremium();
+  const episodeIndexById = useMemo(() => {
+    const map: Record<string, number> = {};
+    videos.forEach((video, index) => {
+      map[video.id] = index;
+    });
+    return map;
+  }, [videos]);
 
   useEffect(() => {
     captureClientEvent(TRACKING_EVENTS.feedView, {
@@ -270,16 +280,21 @@ export function FeedClient({
       </section>
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {filteredVideos.map((video) => (
-          <FeedVideoCard
-            key={video.id}
-            locale={locale}
-            video={video}
-            liked={Boolean(likedIds[video.id])}
-            onLike={() => void handleLike(video.id)}
-            onOpenComments={(trigger) => void openComments(video, trigger)}
-          />
-        ))}
+        {filteredVideos.map((video) => {
+          const episodeIndex = episodeIndexById[video.id] ?? 0;
+          return (
+            <FeedVideoCard
+              key={video.id}
+              locale={locale}
+              video={video}
+              episodeIndex={episodeIndex}
+              locked={isEpisodeLocked(episodeIndex, hasPremium)}
+              liked={Boolean(likedIds[video.id])}
+              onLike={() => void handleLike(video.id)}
+              onOpenComments={(trigger) => void openComments(video, trigger)}
+            />
+          );
+        })}
       </section>
 
       <CommentSheet
@@ -299,16 +314,21 @@ export function FeedClient({
 function FeedVideoCard({
   locale,
   video,
+  episodeIndex,
+  locked,
   liked,
   onLike,
   onOpenComments,
 }: {
   locale: Locale;
   video: FeedVideoItem;
+  episodeIndex: number;
+  locked: boolean;
   liked: boolean;
   onLike: () => void;
   onOpenComments: (trigger: HTMLButtonElement | null) => void;
 }) {
+  const episode = episodeNumberOf(episodeIndex);
   const commentButtonRef = useRef<HTMLButtonElement | null>(null);
   const previewType = video.videoUrl.endsWith(".ogv") ? "video/ogg" : "video/webm";
 
@@ -365,10 +385,20 @@ function FeedVideoCard({
           </div>
         )}
 
-        <div className="absolute inset-x-0 top-0 p-4">
+        <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-4">
           <div className="inline-flex rounded-full border border-white/10 bg-black/35 px-3 py-1 text-[10px] uppercase tracking-[0.22em] text-white/90">
-            {video.trendLabel?.[locale] ?? video.title[locale]}
+            {locale === "zh" ? `第 ${episode} 集` : `EP ${episode}`}
           </div>
+          {locked ? (
+            <div className="inline-flex items-center gap-1 rounded-full border border-[var(--gold)]/70 bg-black/60 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-[var(--gold)]">
+              <Lock className="h-3 w-3" />
+              <span>{locale === "zh" ? "会员" : "VIP"}</span>
+            </div>
+          ) : (
+            <div className="inline-flex rounded-full border border-white/10 bg-black/35 px-2 py-1 text-[10px] uppercase tracking-[0.2em] text-white/80">
+              {locale === "zh" ? "免费" : "Free"}
+            </div>
+          )}
         </div>
 
         <div className="absolute inset-x-0 bottom-0 p-4">
@@ -400,11 +430,19 @@ function FeedVideoCard({
             </div>
 
             <Link
-              href={`/create?template=${video.templateSlug}&from=${video.id}&lang=${locale}`}
+              href={`/watch/${video.id}?lang=${locale}`}
               className="pointer-events-auto inline-flex min-h-[44px] items-center gap-2 rounded-full border border-white/12 bg-black/40 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/24 hover:bg-black/55"
             >
-              <WandSparkles className="h-4 w-4" />
-              <span>{locale === "zh" ? "去创作" : "Create"}</span>
+              {locked ? <Lock className="h-4 w-4" /> : <PlayCircle className="h-4 w-4" />}
+              <span>
+                {locked
+                  ? locale === "zh"
+                    ? "解锁观看"
+                    : "Unlock"
+                  : locale === "zh"
+                    ? "观看"
+                    : "Watch"}
+              </span>
             </Link>
           </div>
         </div>

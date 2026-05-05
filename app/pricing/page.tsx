@@ -1,10 +1,7 @@
-import Link from "next/link";
-import { Sparkles, Check } from "lucide-react";
+import { Check } from "lucide-react";
 
+import { PricingActions } from "@/components/pricing-actions";
 import { SiteShell } from "@/components/site-shell";
-
-const STRIPE_CHECKOUT_URL =
-  "https://buy.stripe.com/3cIcN693jd8AgCN2g15EY0f?client_reference_id=agentspace-ws-w67miwye";
 
 export default async function PricingPage({
   searchParams,
@@ -67,15 +64,9 @@ export default async function PricingPage({
             ))}
           </ul>
 
-          <Link
-            href={STRIPE_CHECKOUT_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="neo-button-primary mt-8 inline-flex w-full items-center justify-center gap-2 px-6 py-3 text-sm"
-          >
-            <Sparkles className="h-4 w-4" />
-            <span>{zh ? "前往 Matrix 官方支付" : "Continue to Matrix checkout"}</span>
-          </Link>
+          <div className="mt-8">
+            <PricingActions locale={locale} />
+          </div>
 
           <p className="mt-4 text-center text-xs text-[var(--text-soft)]">
             {zh
