@@ -10,6 +10,8 @@ import {
   type GenerationRecord,
   type GenerationRequest,
   type GenerationStatus,
+  type PremiumOrder,
+  type PremiumOrderStatus,
   type StoreShape,
   type VideoComment,
   type VideoLike,
@@ -75,9 +77,19 @@ async function readStore(): Promise<StoreShape> {
       likes: parsed.likes ?? initial.likes,
       generations: parsed.generations ?? initial.generations,
       sessions: parsed.sessions ?? initial.sessions,
+      premiumOrders: parsed.premiumOrders ?? initial.premiumOrders,
     };
     await writeStore(next);
     return next;
+  }
+
+  if (!parsed.premiumOrders) {
+    const migrated: StoreShape = {
+      ...(parsed as StoreShape),
+      premiumOrders: {},
+    };
+    await writeStore(migrated);
+    return migrated;
   }
 
   return parsed as StoreShape;
@@ -318,4 +330,78 @@ export async function setGenerationStatus(
     status,
     ...(extras ?? {}),
   });
+}
+
+function normalizeEmail(raw: string) {
+  return raw.trim().toLowerCase();
+}
+
+export async function createPremiumOrder(input: {
+  email: string;
+  receipt: string;
+  note?: string;
+}): Promise<PremiumOrder> {
+  const store = await readStore();
+  const now = new Date().toISOString();
+  const order: PremiumOrder = {
+    id: `ord_${nanoid(12)}`,
+    email: normalizeEmail(input.email),
+    receipt: input.receipt.trim(),
+    note: input.note?.trim() || undefined,
+    status: "pending",
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.premiumOrders[order.id] = order;
+  await writeStore(store);
+  return order;
+}
+
+export async function listPremiumOrders(
+  status?: PremiumOrderStatus,
+): Promise<PremiumOrder[]> {
+  const store = await readStore();
+  const all = Object.values(store.premiumOrders);
+  const filtered = status ? all.filter((o) => o.status === status) : all;
+  return filtered.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+}
+
+export async function updatePremiumOrderStatus(
+  id: string,
+  status: PremiumOrderStatus,
+  reviewerNote?: string,
+): Promise<PremiumOrder | null> {
+  const store = await readStore();
+  const existing = store.premiumOrders[id];
+  if (!existing) return null;
+  const next: PremiumOrder = {
+    ...existing,
+    status,
+    reviewerNote: reviewerNote?.trim() || existing.reviewerNote,
+    updatedAt: new Date().toISOString(),
+  };
+  store.premiumOrders[id] = next;
+  await writeStore(store);
+  return next;
+}
+
+export async function isEmailPremium(email: string): Promise<boolean> {
+  if (!email) return false;
+  const store = await readStore();
+  const normalized = normalizeEmail(email);
+  return Object.values(store.premiumOrders).some(
+    (order) => order.email === normalized && order.status === "approved",
+  );
+}
+
+export async function findLatestOrderByEmail(
+  email: string,
+): Promise<PremiumOrder | null> {
+  if (!email) return null;
+  const store = await readStore();
+  const normalized = normalizeEmail(email);
+  const matches = Object.values(store.premiumOrders)
+    .filter((o) => o.email === normalized)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return matches[0] ?? null;
 }

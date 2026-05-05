@@ -812,5 +812,6 @@ export function makeInitialStore(): StoreShape {
     likes: {},
     generations: {},
     sessions: {},
+    premiumOrders: {},
   };
 }

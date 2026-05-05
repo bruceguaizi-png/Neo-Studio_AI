@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Check, Clock, Sparkles, XCircle } from "lucide-react";
 
 import { usePremium } from "@/components/premium-provider";
 import type { Locale } from "@/lib/types";
@@ -11,14 +10,8 @@ const STRIPE_CHECKOUT_URL =
   "https://buy.stripe.com/3cIcN693jd8AgCN2g15EY0f?client_reference_id=agentspace-ws-w67miwye";
 
 export function PricingActions({ locale }: { locale: Locale }) {
-  const { hasPremium, grantPremium, revokePremium } = usePremium();
-  const [justGranted, setJustGranted] = useState(false);
+  const { hasPremium, email, latestOrder, isLoading, signOut } = usePremium();
   const zh = locale === "zh";
-
-  function handleConfirmPaid() {
-    grantPremium();
-    setJustGranted(true);
-  }
 
   return (
     <div className="flex flex-col gap-3">
@@ -32,37 +25,64 @@ export function PricingActions({ locale }: { locale: Locale }) {
         <span>{zh ? "前往 Matrix 官方支付" : "Continue to Matrix checkout"}</span>
       </Link>
 
-      {hasPremium ? (
-        <div className="flex flex-col gap-2 rounded-2xl border border-[var(--gold)]/50 bg-[var(--gold-soft)]/30 p-4 text-sm">
-          <div className="flex items-center gap-2 font-medium text-[var(--text)]">
-            <Check className="h-4 w-4 text-[var(--gold)]" />
-            <span>{zh ? "会员已激活，可观看全部剧集" : "Premium active — all episodes unlocked"}</span>
+      <Link
+        href={`/pricing/claim?lang=${locale}`}
+        className="neo-button-secondary inline-flex w-full items-center justify-center gap-2 px-6 py-3 text-sm"
+      >
+        <Check className="h-4 w-4" />
+        <span>{zh ? "我已付款，去登记订单" : "I paid — register my receipt"}</span>
+      </Link>
+
+      {!isLoading && email ? (
+        <div className="flex flex-col gap-2 rounded-2xl border border-[var(--line)] bg-white/3 p-4 text-sm">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[var(--text-soft)]">
+              {zh ? "当前登记邮箱" : "Registered email"}
+            </span>
+            <span className="font-medium text-[var(--text)]">{email}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            {hasPremium ? (
+              <>
+                <Check className="h-4 w-4 text-[var(--gold)]" />
+                <span className="text-[var(--gold)]">
+                  {zh ? "会员已激活" : "Premium active"}
+                </span>
+              </>
+            ) : latestOrder?.status === "pending" ? (
+              <>
+                <Clock className="h-4 w-4 text-amber-400" />
+                <span className="text-amber-400">
+                  {zh
+                    ? "订单审核中（通常 24 小时内处理）"
+                    : "Order pending review (usually within 24h)"}
+                </span>
+              </>
+            ) : latestOrder?.status === "rejected" ? (
+              <>
+                <XCircle className="h-4 w-4 text-red-400" />
+                <span className="text-red-400">
+                  {zh
+                    ? "订单未通过，请联系客服或重新提交"
+                    : "Order rejected — contact support or resubmit"}
+                </span>
+              </>
+            ) : (
+              <span className="text-[var(--text-soft)]">
+                {zh
+                  ? "尚无订单，付款后请去登记"
+                  : "No order yet — register your receipt after paying"}
+              </span>
+            )}
           </div>
           <button
             type="button"
-            onClick={revokePremium}
+            onClick={() => void signOut()}
             className="self-start text-xs text-[var(--text-soft)] underline underline-offset-4 hover:text-[var(--text)]"
           >
-            {zh ? "取消演示会员" : "Reset demo premium"}
+            {zh ? "切换邮箱" : "Switch email"}
           </button>
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={handleConfirmPaid}
-          className="neo-button-secondary inline-flex w-full items-center justify-center gap-2 px-6 py-3 text-sm"
-        >
-          <Check className="h-4 w-4" />
-          <span>{zh ? "我已完成支付" : "I already paid"}</span>
-        </button>
-      )}
-
-      {justGranted ? (
-        <p className="text-center text-xs text-[var(--gold)]">
-          {zh
-            ? "已解锁，返回首页继续观看。后续会由 Matrix 客服核销后改为自动开通。"
-            : "Unlocked. Return to the feed to continue watching. Matrix support will reconcile payments automatically in production."}
-        </p>
       ) : null}
     </div>
   );

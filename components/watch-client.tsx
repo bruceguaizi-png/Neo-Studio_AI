@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Lock, PlayCircle, Sparkles } from "lucide-react";
+import { Clock, Lock, PlayCircle, Sparkles } from "lucide-react";
 
 import { usePremium } from "@/components/premium-provider";
 import type { Locale } from "@/lib/types";
@@ -24,9 +24,10 @@ export function WatchClient({
   posterUrl: string;
   title: string;
 }) {
-  const { hasPremium } = usePremium();
+  const { hasPremium, latestOrder } = usePremium();
   const zh = locale === "zh";
   const unlocked = isFree || hasPremium;
+  const isPending = !hasPremium && latestOrder?.status === "pending";
 
   if (unlocked) {
     return (
@@ -58,16 +59,28 @@ export function WatchClient({
       />
       <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/60 to-black/85" />
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center">
-        <Lock className="h-10 w-10 text-[var(--gold)]" />
+        {isPending ? (
+          <Clock className="h-10 w-10 text-amber-400" />
+        ) : (
+          <Lock className="h-10 w-10 text-[var(--gold)]" />
+        )}
         <div className="neo-display text-xl text-white sm:text-2xl">
-          {zh
-            ? `第 ${episode} 集需要会员解锁`
-            : `Episode ${episode} requires Premium`}
+          {isPending
+            ? zh
+              ? "订单审核中"
+              : "Order under review"
+            : zh
+              ? `第 ${episode} 集需要会员解锁`
+              : `Episode ${episode} requires Premium`}
         </div>
         <p className="max-w-md text-sm text-white/80">
-          {zh
-            ? "前 3 集免费观看，第 4 集起需要开通会员。一次付费，全部解锁。"
-            : "First 3 episodes are free. Unlock the rest with a Premium membership."}
+          {isPending
+            ? zh
+              ? "你的付款订单已登记，我们会在 24 小时内核对。通过后这里会自动解锁。"
+              : "Your payment claim is logged. We'll verify within 24 hours; this page unlocks automatically once approved."
+            : zh
+              ? "前 3 集免费观看，第 4 集起需要开通会员。付款后来 /pricing/claim 登记订单即可激活。"
+              : "First 3 episodes are free. Pay via the Stripe link, then register your receipt to activate."}
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link
@@ -77,14 +90,14 @@ export function WatchClient({
             className="neo-button-primary inline-flex items-center justify-center gap-2 px-5 py-3 text-sm"
           >
             <Sparkles className="h-4 w-4" />
-            <span>{zh ? "立即开通会员" : "Unlock Premium"}</span>
+            <span>{zh ? "立即前往支付" : "Pay on Matrix"}</span>
           </Link>
           <Link
-            href={`/pricing?lang=${locale}`}
+            href={`/pricing/claim?lang=${locale}`}
             className="neo-button-secondary inline-flex items-center justify-center gap-2 px-5 py-3 text-sm"
           >
             <PlayCircle className="h-4 w-4" />
-            <span>{zh ? "查看会员权益" : "See benefits"}</span>
+            <span>{zh ? "我已付款，去登记" : "I paid — register receipt"}</span>
           </Link>
         </div>
         <p className="text-xs text-white/60">

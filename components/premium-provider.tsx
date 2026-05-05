@@ -9,59 +9,66 @@ import {
   type ReactNode,
 } from "react";
 
-import { PREMIUM_COOKIE_NAME, PREMIUM_STORAGE_KEY } from "@/lib/paywall";
+type OrderStatus = "pending" | "approved" | "rejected";
+
+type LatestOrder = {
+  id: string;
+  status: OrderStatus;
+  createdAt: string;
+  receipt: string;
+} | null;
 
 type PremiumContextValue = {
   hasPremium: boolean;
-  grantPremium: () => void;
-  revokePremium: () => void;
+  email: string | null;
+  latestOrder: LatestOrder;
+  isLoading: boolean;
+  refresh: () => Promise<void>;
+  signOut: () => Promise<void>;
 };
 
 const PremiumContext = createContext<PremiumContextValue | null>(null);
 
-function writeCookie(value: "1" | "") {
-  if (typeof document === "undefined") return;
-  const maxAge = value === "1" ? 60 * 60 * 24 * 365 : 0;
-  document.cookie = `${PREMIUM_COOKIE_NAME}=${value}; Path=/; Max-Age=${maxAge}; SameSite=Lax`;
-}
-
 export function PremiumProvider({ children }: { children: ReactNode }) {
   const [hasPremium, setHasPremium] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [latestOrder, setLatestOrder] = useState<LatestOrder>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/me", { cache: "no-store" });
+      if (!res.ok) throw new Error("me fetch failed");
+      const data = (await res.json()) as {
+        email: string | null;
+        hasPremium: boolean;
+        latestOrder: LatestOrder;
+      };
+      setEmail(data.email);
+      setHasPremium(Boolean(data.hasPremium));
+      setLatestOrder(data.latestOrder);
+    } catch {
+      setEmail(null);
+      setHasPremium(false);
+      setLatestOrder(null);
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  const signOut = useCallback(async () => {
+    await fetch("/api/me", { method: "DELETE" });
+    await refresh();
+  }, [refresh]);
 
   useEffect(() => {
-    try {
-      const fromStorage = window.localStorage.getItem(PREMIUM_STORAGE_KEY) === "1";
-      const fromCookie = document.cookie
-        .split(";")
-        .some((part) => part.trim() === `${PREMIUM_COOKIE_NAME}=1`);
-      setHasPremium(fromStorage || fromCookie);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  const grantPremium = useCallback(() => {
-    try {
-      window.localStorage.setItem(PREMIUM_STORAGE_KEY, "1");
-    } catch {
-      /* ignore */
-    }
-    writeCookie("1");
-    setHasPremium(true);
-  }, []);
-
-  const revokePremium = useCallback(() => {
-    try {
-      window.localStorage.removeItem(PREMIUM_STORAGE_KEY);
-    } catch {
-      /* ignore */
-    }
-    writeCookie("");
-    setHasPremium(false);
-  }, []);
+    void refresh();
+  }, [refresh]);
 
   return (
-    <PremiumContext.Provider value={{ hasPremium, grantPremium, revokePremium }}>
+    <PremiumContext.Provider
+      value={{ hasPremium, email, latestOrder, isLoading, refresh, signOut }}
+    >
       {children}
     </PremiumContext.Provider>
   );
