@@ -48,6 +48,12 @@ export function SiteShell({
                 >
                   {locale === "zh" ? "创作" : "Create"}
                 </Link>
+                <Link
+                  href={`/pricing?lang=${locale}`}
+                  className="neo-button-secondary inline-flex items-center px-4 text-sm"
+                >
+                  {locale === "zh" ? "升级" : "Upgrade"}
+                </Link>
               </nav>
 
               <div className="ml-auto flex items-center gap-2">
