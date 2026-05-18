@@ -16,13 +16,13 @@ export default async function PricingPage({
     ? [
         "无限解锁全部短剧剧集",
         "全新剧集优先上架",
-        "4K 高清 + 免广告播放",
+        "4K 高清播放体验",
         "多端同步观看进度",
       ]
     : [
         "Unlock every drama episode",
         "Early access to new releases",
-        "4K playback without ads",
+        "4K cinematic playback",
         "Cross-device watch sync",
       ];
 
