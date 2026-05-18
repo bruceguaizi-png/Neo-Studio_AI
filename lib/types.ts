@@ -152,6 +152,19 @@ export type GenerateResponse = {
   generation: GenerationRecord;
 };
 
+export type PremiumOrderStatus = "pending" | "approved" | "rejected";
+
+export type PremiumOrder = {
+  id: string;
+  email: string;
+  receipt: string;
+  note?: string;
+  status: PremiumOrderStatus;
+  createdAt: string;
+  updatedAt: string;
+  reviewerNote?: string;
+};
+
 export type StoreShape = {
   feedVideos: Record<string, FeedVideoItem>;
   templates: Record<string, VideoTemplate>;
@@ -159,4 +172,5 @@ export type StoreShape = {
   likes: Record<string, VideoLike>;
   generations: Record<string, GenerationRecord>;
   sessions: Record<string, { id: string; createdAt: string; updatedAt: string }>;
+  premiumOrders: Record<string, PremiumOrder>;
 };
